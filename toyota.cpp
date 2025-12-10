@@ -1,67 +1,40 @@
-﻿#include <iostream>
+#include <iostream>
 #include <string>
 
 class Money {
-private:
-    char digits[13];
-
+    char d[13];
 public:
-    Money() {
-        for (int i = 0; i < 13; i++) digits[i] = 0;
+    Money() { for(int i=0;i<13;i++) d[i]=0; }
+    
+    Money(std::string s) {
+        for(int i=0;i<13;i++) d[i]=0;
+        int r=0,k=0,i=0;
+        
+        while(i<s.size() && s[i]!='.' && s[i]!=',')
+            if(s[i]>='0' && s[i]<='9')
+                r = r*10 + (s[i++]-'0');
+        
+        i++; 
+        
+        if(i<s.size()) k = (s[i]-'0')*10;
+        if(i+1<s.size()) k += s[i+1]-'0';
+        
+        d[0]=k%10; d[1]=k/10;
+        for(int j=2;r>0 && j<13;r/=10)
+            d[j++] = r%10;
     }
-
-    Money(const std::string& str) {
-        for (int i = 0; i < 13; i++) digits[i] = 0;
-
-        int rub = 0, kop = 0;
-
-        int i = 0;
-        while (i < str.length() && str[i] != '.' && str[i] != ',') {
-            if (str[i] >= '0' && str[i] <= '9') {
-                rub = rub * 10 + (str[i] - '0');
-            }
-            i++;
-        }
-
-        i++;
-
-        if (i < str.length()) {
-            kop = (str[i] - '0') * 10;
-            i++;
-        }
-        if (i < str.length()) {
-            kop += (str[i] - '0');
-        }
-
-        digits[0] = kop % 10;
-        digits[1] = kop / 10;
-
-        int index = 2;
-        while (rub > 0 && index < 13) {
-            digits[index++] = rub % 10;
-            rub /= 10;
-        }
-    }
-
-    void print() const {
-        bool started = false;
-        for (int i = 12; i >= 2; i--) {
-            if (digits[i] != 0 || started || i == 2) {
-                std::cout << char(digits[i] + '0');
-                started = true;
-            }
-        }
-        if (!started) std::cout << "0";
-
-        std::cout << "." << char(digits[1] + '0') << char(digits[0] + '0');
+    
+    void show() {
+        int i=12;
+        while(i>=2 && d[i]==0 && i>2) i--;
+        for(;i>=2;i--) std::cout<<(char)(d[i]+'0');
+        std::cout<<'.'<<(char)(d[1]+'0')<<(char)(d[0]+'0');
     }
 };
 
 int main() {
     Money m("1234.56");
     std::cout << "Сумма: ";
-    m.print();
-    std::cout << std::endl;
+    m.show();
     return 0;
-
 }
