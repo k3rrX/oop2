@@ -1,138 +1,142 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <stdexcept>
 
 class Money {
 private:
-    std::vector<unsigned char> numbers;
+    std::vector<unsigned char> data;
     
-    static const int TOTAL_DIGITS = 13;
-    static const int KOPEEK_DIGITS = 2;
+    static const int TOTAL_SIZE = 13;
+    static const int KOPEEK_PART = 2;
     
-    void setup(const std::string& value) {
-        numbers.assign(TOTAL_DIGITS, 0);
+    void parseString(const std::string& value) {
+        for (int i = 0; i < TOTAL_SIZE; i++) data[i] = 0;
         
-        int point = value.find('.');
-        if (point == std::string::npos) point = value.find(',');
+        int rubles = 0, kopeeks = 0, pos = 0;
         
-        long rubles = 0;
-        for (int i = 0; i < (point != std::string::npos ? point : (int)value.length()); i++) {
-            rubles = rubles * 10 + (value[i] - '0');
+        while (pos < (int)value.size() && value[pos] != '.' && value[pos] != ',') {
+            rubles = rubles * 10 + (value[pos] - '0');
+            pos++;
         }
         
-        int kopeeks = 0;
-        if (point != std::string::npos && point + 1 < value.length()) {
-            kopeeks = (value[point + 1] - '0') * 10;
-        }
-        if (point != std::string::npos && point + 2 < value.length()) {
-            kopeeks += value[point + 2] - '0';
-        }
+        pos++;
+        if (pos < (int)value.size()) kopeeks = (value[pos] - '0') * 10;
+        if (pos + 1 < (int)value.size()) kopeeks += value[pos + 1] - '0';
         
-        numbers[0] = kopeeks % 10;
-        numbers[1] = kopeeks / 10;
+        data[0] = kopeeks % 10;
+        data[1] = kopeeks / 10;
         
-        int pos = 2;
-        while (rubles > 0) {
-            numbers[pos++] = rubles % 10;
+        for (int i = 2; rubles > 0; i++) {
+            data[i] = rubles % 10;
             rubles /= 10;
         }
     }
     
-    int checkDifference(const Money& other) const {
-        for (int i = TOTAL_DIGITS - 1; i >= 0; i--) {
-            if (numbers[i] != other.numbers[i]) {
-                return numbers[i] - other.numbers[i];
-            }
+    int compare(const Money& other) const {
+        for (int i = TOTAL_SIZE - 1; i >= 0; i--) {
+            if (data[i] > other.data[i]) return 1;
+            if (data[i] < other.data[i]) return -1;
         }
         return 0;
     }
 
 public:
-    Money() : numbers(TOTAL_DIGITS, 0) {}
+    Money() : data(TOTAL_SIZE, 0) {}
     
-    Money(const std::string& value) {
-        setup(value);
+    Money(const std::string& value) : data(TOTAL_SIZE, 0) {
+        if (value.empty()) throw std::invalid_argument("empty string");
+        parseString(value);
     }
     
-    Money(const Money& source) : numbers(source.numbers) {}
+    Money(const Money& other) : data(other.data) {}
     
-    Money combine(const Money& other) const {
+    Money(Money&& other) noexcept : data(std::move(other.data)) {
+        other.data = std::vector<unsigned char>(TOTAL_SIZE, 0);
+    }
+    
+    ~Money() noexcept {}
+    
+    Money add(const Money& other) const {
         Money result;
-        int extra = 0;
+        int carry = 0;
         
-        for (int i = 0; i < TOTAL_DIGITS; i++) {
-            int total = numbers[i] + other.numbers[i] + extra;
-            result.numbers[i] = total % 10;
-            extra = total / 10;
+        for (int i = 0; i < TOTAL_SIZE; i++) {
+            int sum = data[i] + other.data[i] + carry;
+            result.data[i] = sum % 10;
+            carry = sum / 10;
         }
         
+        if (carry > 0) throw std::overflow_error("overflow");
         return result;
     }
     
-    Money takeAway(const Money& other) const {
-        Money result;
-        int need = 0;
+    Money subtract(const Money& other) const {
+        if (compare(other) < 0) throw std::invalid_argument("negative result");
         
-        for (int i = 0; i < TOTAL_DIGITS; i++) {
-            int current = numbers[i] - other.numbers[i] - need;
-            if (current < 0) {
-                current += 10;
-                need = 1;
+        Money result;
+        int borrow = 0;
+        
+        for (int i = 0; i < TOTAL_SIZE; i++) {
+            int diff = data[i] - other.data[i] - borrow;
+            if (diff < 0) {
+                diff += 10;
+                borrow = 1;
             } else {
-                need = 0;
+                borrow = 0;
             }
-            result.numbers[i] = current;
+            result.data[i] = diff;
         }
         
         return result;
     }
     
-    bool isSame(const Money& other) const {
-        return checkDifference(other) == 0;
+    bool isGreater(const Money& other) const {
+        return compare(other) > 0;
     }
     
-    bool isBigger(const Money& other) const {
-        return checkDifference(other) > 0;
+    bool isLess(const Money& other) const {
+        return compare(other) < 0;
     }
     
-    bool isSmaller(const Money& other) const {
-        return checkDifference(other) < 0;
+    bool isEqual(const Money& other) const {
+        return compare(other) == 0;
     }
     
-    std::string display() const {
-        std::string text;
+    std::string toString() const {
+        std::string result;
+        int i = TOTAL_SIZE - 1;
         
-        bool foundNonZero = false;
-        for (int i = TOTAL_DIGITS - 1; i >= KOPEEK_DIGITS; i--) {
-            if (numbers[i] != 0) foundNonZero = true;
-            if (foundNonZero || i == KOPEEK_DIGITS) {
-                text.push_back('0' + numbers[i]);
-            }
+        while (i > KOPEEK_PART && data[i] == 0) i--;
+        for (; i >= 0; i--) {
+            result += static_cast<char>(data[i] + '0');
+            if (i == 1) result += '.';
         }
         
-        text.push_back('.');
-        text.push_back('0' + numbers[1]);
-        text.push_back('0' + numbers[0]);
-        
-        return text;
+        return result;
     }
 };
 
 int main() {
-    Money first("1500.75");
-    Money second("750.25");
-    
-    std::cout << "First amount: " << first.display() << std::endl;
-    std::cout << "Second amount: " << second.display() << std::endl;
-    
-    Money total = first.combine(second);
-    std::cout << "Total: " << total.display() << std::endl;
-    
-    Money remaining = first.takeAway(second);
-    std::cout << "Remaining: " << remaining.display() << std::endl;
-    
-    if (first.isBigger(second)) {
-        std::cout << first.display() << " is bigger than " << second.display() << std::endl;
+    try {
+        Money m1("1234.56");
+        Money m2("1000.00");
+        
+        std::cout << m1.toString() << std::endl;
+        std::cout << m2.toString() << std::endl;
+        
+        Money sum = m1.add(m2);
+        std::cout << sum.toString() << std::endl;
+        
+        Money diff = m1.subtract(m2);
+        std::cout << diff.toString() << std::endl;
+        
+        std::cout << m1.isGreater(m2) << std::endl;
+        std::cout << m1.isLess(m2) << std::endl;
+        std::cout << m1.isEqual(m1) << std::endl;
+        
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << std::endl;
     }
     
     return 0;
