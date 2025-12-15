@@ -4,132 +4,135 @@
 
 class Money {
 private:
-    std::vector<unsigned char> digits;
-    static const int SIZE = 13;
+    std::vector<unsigned char> numbers;
     
-    void initFromString(const std::string& str) {
-        for(int i = 0; i < SIZE; i++) digits[i] = 0;
-        int rubles = 0, kopeeks = 0, pos = 0;
+    static const int TOTAL_DIGITS = 13;
+    static const int KOPEEK_DIGITS = 2;
+    
+    void setup(const std::string& value) {
+        numbers.assign(TOTAL_DIGITS, 0);
         
-        while(pos < str.size() && str[pos] != '.' && str[pos] != ',') {
-            rubles = rubles * 10 + (str[pos] - '0');
-            pos++;
+        int point = value.find('.');
+        if (point == std::string::npos) point = value.find(',');
+        
+        long rubles = 0;
+        for (int i = 0; i < (point != std::string::npos ? point : (int)value.length()); i++) {
+            rubles = rubles * 10 + (value[i] - '0');
         }
-        pos++;
         
-        if(pos < str.size()) kopeeks = (str[pos] - '0') * 10;
-        if(pos + 1 < str.size()) kopeeks += str[pos + 1] - '0';
+        int kopeeks = 0;
+        if (point != std::string::npos && point + 1 < value.length()) {
+            kopeeks = (value[point + 1] - '0') * 10;
+        }
+        if (point != std::string::npos && point + 2 < value.length()) {
+            kopeeks += value[point + 2] - '0';
+        }
         
-        digits[0] = kopeeks % 10;
-        digits[1] = kopeeks / 10;
+        numbers[0] = kopeeks % 10;
+        numbers[1] = kopeeks / 10;
         
-        int idx = 2;
-        while(rubles > 0) {
-            digits[idx++] = rubles % 10;
+        int pos = 2;
+        while (rubles > 0) {
+            numbers[pos++] = rubles % 10;
             rubles /= 10;
         }
     }
     
-    int compare(const Money& other) const {
-        for(int i = SIZE - 1; i >= 0; i--) {
-            if(digits[i] != other.digits[i]) {
-                return (digits[i] > other.digits[i]) ? 1 : -1;
+    int checkDifference(const Money& other) const {
+        for (int i = TOTAL_DIGITS - 1; i >= 0; i--) {
+            if (numbers[i] != other.numbers[i]) {
+                return numbers[i] - other.numbers[i];
             }
         }
         return 0;
     }
-    
+
 public:
-    Money() : digits(SIZE, 0) {}
+    Money() : numbers(TOTAL_DIGITS, 0) {}
     
-    Money(const std::string& str) : digits(SIZE, 0) {
-        initFromString(str);
+    Money(const std::string& value) {
+        setup(value);
     }
     
-    Money(const Money& other) : digits(other.digits) {}
+    Money(const Money& source) : numbers(source.numbers) {}
     
-    Money add(const Money& other) const {
+    Money combine(const Money& other) const {
         Money result;
-        int carry = 0;
+        int extra = 0;
         
-        for(int i = 0; i < SIZE; i++) {
-            int sum = digits[i] + other.digits[i] + carry;
-            result.digits[i] = sum % 10;
-            carry = sum / 10;
+        for (int i = 0; i < TOTAL_DIGITS; i++) {
+            int total = numbers[i] + other.numbers[i] + extra;
+            result.numbers[i] = total % 10;
+            extra = total / 10;
         }
+        
         return result;
     }
     
-    Money subtract(const Money& other) const {
-        if(compare(other) < 0) {
-            return other.subtract(*this);
-        }
-        
+    Money takeAway(const Money& other) const {
         Money result;
-        int borrow = 0;
+        int need = 0;
         
-        for(int i = 0; i < SIZE; i++) {
-            int diff = digits[i] - other.digits[i] - borrow;
-            if(diff < 0) {
-                diff += 10;
-                borrow = 1;
+        for (int i = 0; i < TOTAL_DIGITS; i++) {
+            int current = numbers[i] - other.numbers[i] - need;
+            if (current < 0) {
+                current += 10;
+                need = 1;
             } else {
-                borrow = 0;
+                need = 0;
             }
-            result.digits[i] = diff;
+            result.numbers[i] = current;
         }
+        
         return result;
     }
     
-    bool equals(const Money& other) const {
-        return compare(other) == 0;
+    bool isSame(const Money& other) const {
+        return checkDifference(other) == 0;
     }
     
-    bool greaterThan(const Money& other) const {
-        return compare(other) > 0;
+    bool isBigger(const Money& other) const {
+        return checkDifference(other) > 0;
     }
     
-    bool lessThan(const Money& other) const {
-        return compare(other) < 0;
+    bool isSmaller(const Money& other) const {
+        return checkDifference(other) < 0;
     }
     
-    std::string toString() const {
-        std::string result;
-        bool leadingZero = true;
+    std::string display() const {
+        std::string text;
         
-        for(int i = SIZE - 1; i >= 2; i--) {
-            if(digits[i] != 0) leadingZero = false;
-            if(!leadingZero || i == 2) {
-                result += char(digits[i] + '0');
+        bool foundNonZero = false;
+        for (int i = TOTAL_DIGITS - 1; i >= KOPEEK_DIGITS; i--) {
+            if (numbers[i] != 0) foundNonZero = true;
+            if (foundNonZero || i == KOPEEK_DIGITS) {
+                text.push_back('0' + numbers[i]);
             }
         }
         
-        if(result.empty()) result = "0";
+        text.push_back('.');
+        text.push_back('0' + numbers[1]);
+        text.push_back('0' + numbers[0]);
         
-        result += '.';
-        result += char(digits[1] + '0');
-        result += char(digits[0] + '0');
-        
-        return result;
+        return text;
     }
 };
 
 int main() {
-    Money amount1("1234.56");
-    Money amount2("1000.00");
+    Money first("1500.75");
+    Money second("750.25");
     
-    std::cout << "Amount 1: " << amount1.toString() << std::endl;
-    std::cout << "Amount 2: " << amount2.toString() << std::endl;
+    std::cout << "First amount: " << first.display() << std::endl;
+    std::cout << "Second amount: " << second.display() << std::endl;
     
-    Money sum = amount1.add(amount2);
-    std::cout << "Sum: " << sum.toString() << std::endl;
+    Money total = first.combine(second);
+    std::cout << "Total: " << total.display() << std::endl;
     
-    Money difference = amount1.subtract(amount2);
-    std::cout << "Difference: " << difference.toString() << std::endl;
+    Money remaining = first.takeAway(second);
+    std::cout << "Remaining: " << remaining.display() << std::endl;
     
-    if(amount1.greaterThan(amount2)) {
-        std::cout << amount1.toString() << " is greater than " 
-                  << amount2.toString() << std::endl;
+    if (first.isBigger(second)) {
+        std::cout << first.display() << " is bigger than " << second.display() << std::endl;
     }
     
     return 0;
